@@ -1,7 +1,5 @@
 
-declare type Literal = { [x: string]: any; };
-
-declare type Handler = (ctx: Literal) => any;
+declare type Handler = (ctx: { [x: string]: any; }) => any;
 
 declare interface Route {
   readonly path: string;
