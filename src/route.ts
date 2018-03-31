@@ -1,7 +1,6 @@
 
 import { join } from 'path'
 import * as assert from 'assert'
-import { Handler } from './types'
 import * as createDebugger from 'debug'
 
 const debug = createDebugger('aldo:route')
@@ -11,9 +10,9 @@ const METHODS = ['HEAD', 'GET', 'PATCH', 'POST', 'PUT', 'DELETE', 'OPTIONS']
  * Route container
  */
 export default class Route {
-  private _handlers = new Map<string, Handler[]>()
+  private _handlers = new Map<string, Function[]>()
   private _prefix: string
-  private _name: string
+  // private _name: string
   private _path: string
 
   /**
@@ -23,9 +22,9 @@ export default class Route {
    * @param prefix
    */
   public constructor (path: string, prefix: string = '') {
-    this._prefix = _normalize(prefix)
-    this._path = _normalize(path)
-    this._name = ''
+    this._prefix = prefix
+    this._path = path
+    // this._name = ''
   }
 
   /**
@@ -38,30 +37,28 @@ export default class Route {
   /**
    * The route name
    */
-  public get name (): string {
-    return this._name
-  }
+  // public get name (): string {
+  //   return this._name
+  // }
 
   /**
    * Set the route name
    * 
    * @param {String} name
    */
-  public as (name: string): this {
-    this._name = name
-    debug(`set route name to "${this._name}"`)
-    return this
-  }
+  // public as (name: string): this {
+  //   this._name = name
+  //   debug(`set route name to "${this._name}"`)
+  //   return this
+  // }
 
   /**
    * Set the route prefix
    * 
    * @param path
-   * 
-   * @todo add test case for "/" path
    */
   public prefix (path: string) {
-    this._prefix = _normalize(path)
+    this._prefix = path
     debug(`set route prefix to "${this._prefix}"`)
     return this
   }
@@ -69,7 +66,7 @@ export default class Route {
   /**
    * Get an iterator of the route handlers
    */
-  public handlers (): [string, Handler[]][] {
+  public handlers (): [string, Function[]][] {
     return Array.from(this._handlers)
   }
 
@@ -78,7 +75,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public head (...fns: Handler[]): this {
+  public head (...fns: Function[]): this {
     return this.any(['HEAD'], ...fns)
   }
 
@@ -87,7 +84,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public get (...fns: Handler[]): this {
+  public get (...fns: Function[]): this {
     return this.any(['HEAD', 'GET'], ...fns)
   }
 
@@ -96,7 +93,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public post (...fns: Handler[]): this {
+  public post (...fns: Function[]): this {
     return this.any(['POST'], ...fns)
   }
 
@@ -105,7 +102,7 @@ export default class Route {
    * 
    * @param  fns
    */
-  public put (...fns: Handler[]): this {
+  public put (...fns: Function[]): this {
     return this.any(['PUT'], ...fns)
   }
 
@@ -114,7 +111,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public patch (...fns: Handler[]): this {
+  public patch (...fns: Function[]): this {
     return this.any(['PATCH'], ...fns)
   }
 
@@ -123,7 +120,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public delete (...fns: Handler[]): this {
+  public delete (...fns: Function[]): this {
     return this.any(['DELETE'], ...fns)
   }
 
@@ -132,7 +129,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public options (...fns: Handler[]): this {
+  public options (...fns: Function[]): this {
     return this.any(['OPTIONS'], ...fns)
   }
 
@@ -143,7 +140,7 @@ export default class Route {
    * 
    * @param fns
    */
-  public all (...fns: Handler[]): this {
+  public all (...fns: Function[]): this {
     return this.any(METHODS, ...fns)
   }
 
@@ -155,7 +152,7 @@ export default class Route {
    * @param methods
    * @param fns
    */
-  public any (methods: string[], ...fns: Handler[]): this {
+  public any (methods: string[], ...fns: Function[]): this {
     assert(fns.length, 'At least one route handler is required.')
 
     for (let fn of fns) {
@@ -163,27 +160,16 @@ export default class Route {
     }
 
     for (let method of methods) {
-      assert(!this._handlers.has(method), `Method '${method}' already defined for "${this.path}"`)
-      assert(METHODS.includes(method.toUpperCase()), `Method '${method}' not accepted.`)
+      // normalize the method name
+      method = method.toUpperCase()
 
-      debug(`add handlers for ${method.toUpperCase()} ${this.path}`)
+      assert(!this._handlers.has(method), `Method '${method}' already defined for "${this.path}"`)
+      assert(METHODS.includes(method), `Method '${method}' not accepted.`)
+
+      debug(`add handlers for ${method} ${this.path}`)
       this._handlers.set(method, fns)
     }
 
     return this
   }
-}
-
-/**
- * Normalize the URL path
- * 
- * @param path
- * @private
- */
-function _normalize (path: string): string {
-  if (path.endsWith('/')) path = path.slice(0, -1)
-
-  if (!path.startsWith('/')) path = '/' + path
-
-  return path
 }
