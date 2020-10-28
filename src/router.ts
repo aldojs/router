@@ -1,194 +1,57 @@
 
-import Route from './route'
-import * as assert from 'assert'
-import * as createDebugger from 'debug'
+import assert from 'assert'
+import { METHODS } from 'http'
+import { Route } from './route'
 
-const debug = createDebugger('aldo:router')
-
-/**
- * Routes factory and manager
- */
-export default class {
-  private _handlers: Function[] = []
-  private _routes: Route[] = []
-  private _prefix: string
-
-  /**
-   * Initialize a new 
-   * 
-   * @param prefix
-   */
-  public constructor (prefix = '') {
-    this._prefix = _normalize(prefix)
+export class Router {
+  constructor (private store: Storage) {
   }
 
-  /**
-   * Set the path prefix for all routes
-   * 
-   * @param path The path prefix
-   */
-  public prefix (path: string): this {
-    this._prefix = _normalize(path)
+  register (method: string, pattern: string, fn: Function) {
+    assert(isFunction(fn), `Expect a function, but got ${typeof fn}`)
+    assert(METHODS.includes(method), `Expect a valid HTTP method, given "${method}"`)
 
-    debug(`update route prefix to ${this._prefix}`)
+    let handlers = this.store.get(pattern) || {}
 
-    // set the prefix for the registered routes
-    for (let route of this._routes) {
-      route.prefix(path)
-    }
+    assert(! handlers[method], `Duplicate route definition: ${method} ${pattern}`)
+
+    this.store.set(pattern, { ...handlers, [method]: fn })
 
     return this
   }
 
-  /**
-   * Get all defined routes
-   */
-  public routes (): Route[] {
-    return this._routes
+  match (method: string, path: string): Match {
+    let fn: any, params = {}, handlers = this.store.match(path, params) || {}
+
+    if ((fn = handlers[method.toUpperCase()])) return ({
+      methods: Object.getOwnPropertyNames(handlers), handler: fn, params
+    })
   }
 
   /**
-   * Create and add a route into the list
+   * Create a route instance for the given prefix.
    * 
-   * @param path
+   * @param prefix the URL prefix
    */
-  public route (path: string): Route {
-    var route = new Route(_normalize(path), this._prefix)
-
-    debug(`create route for ${path}`)
-    this._routes.push(route)
-
-    return route
-  }
-
-  /**
-   * Use global handlers
-   * 
-   * @param fns
-   */
-  public use (...fns: Function[]) {
-    for (let fn of fns) {
-      this._handlers.push(_ensureFunction(fn))
-      debug(`use route handler: ${fn.name || '<anonymous>'}`)
-    }
-
-    return this
-  }
-
-  /**
-   * Make new route and set the fns for HEAD method
-   * 
-   * @param path
-   * @param fns
-   */
-  public head (path: string, ...fns: Function[]): Route {
-    return this.route(path).head(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for GET method
-   * 
-   * @param path
-   * @param fns
-   */
-  public get (path: string, ...fns: Function[]): Route {
-    return this.route(path).get(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for POST method
-   * 
-   * @param path
-   * @param fns
-   */
-  public post (path: string, ...fns: Function[]): Route {
-    return this.route(path).post(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for PUT method
-   * 
-   * @param path
-   * @param fns
-   */
-  public put (path: string, ...fns: Function[]): Route {
-    return this.route(path).put(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for PATCH method
-   * 
-   * @param path
-   * @param fns
-   */
-  public patch (path: string, ...fns: Function[]): Route {
-    return this.route(path).patch(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for DELETE method
-   * 
-   * @param path
-   * @param fns
-   */
-  public delete (path: string, ...fns: Function[]): Route {
-    return this.route(path).delete(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for OPTIONS method
-   * 
-   * @param path
-   * @param fns
-   */
-  public options (path: string, ...fns: Function[]): Route {
-    return this.route(path).options(...this._handlers.concat(fns));
-  }
-
-  /**
-   * Make new route and set the fns for accepted methods
-   * 
-   * @param path
-   * @param fns
-   */
-  public all (path: string, ...fns: Function[]): Route {
-    return this.route(path).all(...this._handlers.concat(fns))
-  }
-
-  /**
-   * Make new route and set the fns for the given HTTP method
-   * 
-   * @param methods
-   * @param path
-   * @param fns
-   */
-  public any (methods: string[], path: string, ...fns: Function[]): Route {
-    return this.route(path).any(methods, ...this._handlers.concat(fns))
+  route (prefix = '') {
+    return new Route(this, prefix)
   }
 }
 
-/**
- * Ensure the given argument is a function
- * 
- * @param fn
- * @private
- */
-function _ensureFunction<T> (fn: T): Function {
-  if (typeof fn === 'function') return fn
-
-  throw new TypeError(`Function expected but got ${typeof fn}`)
+export interface Storage {
+  set (path: string, data: { [x: string]: Function }): any
+  get (path: string): { [x: string]: Function } | undefined
+  match (path: string, params: any): { [x: string]: Function } | undefined
 }
 
-/**
- * Normalize the URL path
- * 
- * @param path
- * @private
- */
-function _normalize (path: string): string {
-  if (path.endsWith('/')) path = path.slice(0, -1)
+export interface Match {
+  handler: Function
+  methods: string[]
+  params: {
+    [x: string]: string
+  }
+}
 
-  if (!path.startsWith('/')) path = '/' + path
-
-  return path
+function isFunction (arg: any) {
+  return typeof arg === 'function'
 }
